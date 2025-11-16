@@ -1,173 +1,348 @@
-local TweenService = game:GetService("TweenService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local DEFAULT_COLORS = {
-    Main = Color3.fromRGB(200, 180, 255),
-    Background = Color3.fromRGB(30, 30, 40),
-    Text = Color3.fromRGB(255, 255, 255),
-    Button = Color3.fromRGB(100, 80, 160),
-    ButtonHover = Color3.fromRGB(120, 100, 180),
-    Accent = Color3.fromRGB(180, 160, 220)
-}
-
-local ANIMATIONS = {
-    FadeIn = function(gui, duration)
-        gui.BackgroundTransparency = 1
-        for _, child in ipairs(gui:GetDescendants()) do
-            if child:IsA("GuiObject") then
-                child.BackgroundTransparency = 1
-                if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-                    child.TextTransparency = 1
-                end
-                if child:IsA("ImageLabel") or child:IsA("ImageButton") then
-                    child.ImageTransparency = 1
-                end
-            end
-        end
-        
-        local tweenInfo = TweenInfo.new(duration or 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        
-        local function fadeIn(obj)
-            if obj:IsA("GuiObject") then
-                TweenService:Create(obj, tweenInfo, {BackgroundTransparency = obj.BackgroundTransparency - 1}):Play()
-                
-                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    TweenService:Create(obj, tweenInfo, {TextTransparency = 0}):Play()
-                elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    TweenService:Create(obj, tweenInfo, {ImageTransparency = 0}):Play()
-                end
-            end
-        end
-        
-        fadeIn(gui)
-        for _, child in ipairs(gui:GetDescendants()) do
-            fadeIn(child)
-        end
-    end,
-    
-    ButtonHover = function(button, isHovering)
-        local targetColor = isHovering and DEFAULT_COLORS.ButtonHover or DEFAULT_COLORS.Button
-        TweenService:Create(
-            button,
-            TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {BackgroundColor3 = targetColor}
-        ):Play()
-    end
-}
-
-local function createCorner(radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 8)
-    return corner
-end
-
-local function createPadding(padding)
-    local uiPadding = Instance.new("UIPadding")
-    uiPadding.PaddingBottom = UDim.new(0, padding or 8)
-    uiPadding.PaddingTop = UDim.new(0, padding or 8)
-    uiPadding.PaddingLeft = UDim.new(0, padding or 8)
-    uiPadding.PaddingRight = UDim.new(0, padding or 8)
-    return uiPadding
-end
-
 local Viper = {}
 Viper.__index = Viper
 
-function Viper.new()
-    local self = setmetatable({}, Viper)
-    
-    self.gui = Instance.new("ScreenGui")
-    self.gui.Name = "ViperUI"
-    self.gui.ResetOnSpawn = false
-    self.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
-    self.mainFrame = Instance.new("Frame")
-    self.mainFrame.Name = "MainFrame"
-    self.mainFrame.Size = UDim2.new(0, 600, 0, 400)
-    self.mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
-    self.mainFrame.BackgroundColor3 = DEFAULT_COLORS.Background
-    self.mainFrame.BackgroundTransparency = 0.2
-    self.mainFrame.BorderSizePixel = 0
-    
-    local blur = game.Lighting:FindFirstChild("ViperUIBlur")
-    if not blur then
-        blur = Instance.new("BlurEffect")
-        blur.Name = "ViperUIBlur"
-        blur.Size = 24
-        blur.Parent = game.Lighting
-    end
-    
-    createCorner(12).Parent = self.mainFrame
-    
-    self.titleBar = Instance.new("Frame")
-    self.titleBar.Name = "TitleBar"
-    self.titleBar.Size = UDim2.new(0, 150, 1, 0)
-    self.titleBar.BackgroundTransparency = 1
-    self.titleBar.BorderSizePixel = 0
-    self.titleBar.Parent = self.mainFrame
-    
-    self.icon = Instance.new("ImageLabel")
-    self.icon.Name = "Icon"
-    self.icon.Size = UDim2.new(0, 64, 0, 64)
-    self.icon.Position = UDim2.new(0.5, -32, 0.3, -32)
-    self.icon.AnchorPoint = Vector2.new(0.5, 0.5)
-    self.icon.BackgroundTransparency = 1
-    self.icon.Image = "rbxassetid://0"
-    self.icon.Parent = self.titleBar
-    
-    self.gameName = Instance.new("TextLabel")
-    self.gameName.Name = "GameName"
-    self.gameName.Size = UDim2.new(1, -20, 0, 60)
-    self.gameName.Position = UDim2.new(0, 10, 0.4, 40)
-    self.gameName.BackgroundTransparency = 1
-    self.gameName.Text = MarketplaceService:GetProductInfo(game.PlaceId).Name or "Game"
-    self.gameName.TextColor3 = DEFAULT_COLORS.Text
-    self.gameName.TextSize = 16
-    self.gameName.Font = Enum.Font.GothamMedium
-    self.gameName.TextWrapped = true
-    self.gameName.TextXAlignment = Enum.TextXAlignment.Center
-    self.gameName.Parent = self.titleBar
-    
-    self.closeButton = Instance.new("TextButton")
-    self.closeButton.Name = "CloseButton"
-    self.closeButton.Size = UDim2.new(0, 24, 0, 24)
-    self.closeButton.Position = UDim2.new(1, -32, 0, 8)
-    self.closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-    self.closeButton.Text = "X"
-    self.closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    self.closeButton.TextSize = 14
-    self.closeButton.Font = Enum.Font.GothamBold
-    self.closeButton.Parent = self.mainFrame
-    
-    createCorner(12).Parent = self.closeButton
-    
-    self.contentFrame = Instance.new("Frame")
-    self.contentFrame.Name = "ContentFrame"
-    self.contentFrame.Size = UDim2.new(1, -170, 1, -40)
-    self.contentFrame.Position = UDim2.new(0, 160, 0, 20)
-    self.contentFrame.BackgroundTransparency = 0.9
-    self.contentFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    self.contentFrame.ClipsDescendants = true
-    createCorner(8).Parent = self.contentFrame
-    self.contentFrame.Parent = self.mainFrame
-    
-    self.mainFrame.Parent = self.gui
-    
-    self.closeButton.MouseButton1Click:Connect(function()
-        self:Close()
+local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local COLORS = {
+    Background = Color3.fromRGB(15, 15, 20),
+    Sidebar = Color3.fromRGB(20, 20, 25),
+    Accent = Color3.fromRGB(180, 160, 220),
+    AccentHover = Color3.fromRGB(200, 180, 240),
+    Text = Color3.fromRGB(255, 255, 255),
+    SubText = Color3.fromRGB(180, 180, 190),
+    Button = Color3.fromRGB(35, 35, 45),
+    ButtonHover = Color3.fromRGB(45, 45, 55)
+}
+
+local function CreateTween(instance, properties, duration, easingStyle, easingDirection)
+    easingStyle = easingStyle or Enum.EasingStyle.Quart
+    easingDirection = easingDirection or Enum.EasingDirection.Out
+    duration = duration or 0.3
+
+    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    return tween
+end
+
+local function AddCorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = instance
+    return corner
+end
+
+local function AddStroke(instance, color, thickness, transparency)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(255, 255, 255)
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = transparency or 0.8
+    stroke.Parent = instance
+    return stroke
+end
+
+local function GetGameInfo()
+    local gameId = game.PlaceId
+    local success, result = pcall(function()
+        return MarketplaceService:GetProductInfo(gameId)
     end)
-    
+
+    if success then
+        return {
+            Name = result.Name,
+            IconUrl = "rbxassetid://" .. tostring(result.IconImageAssetId or 0)
+        }
+    else
+        return {
+            Name = "Unknown Game",
+            IconUrl = "rbxassetid://0"
+        }
+    end
+end
+
+function Viper.new(iconAsset)
+    local self = setmetatable({}, Viper)
+
+    self.IconAsset = iconAsset or "rbxassetid://0"
+    self.GameInfo = GetGameInfo()
+    self.Loaded = false
+
+    self:CreateLoadPrompt()
+
+    return self
+end
+
+function Viper:CreateLoadPrompt()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "ViperLoadPrompt"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = CoreGui
+
+    local Overlay = Instance.new("Frame")
+    Overlay.Name = "Overlay"
+    Overlay.Size = UDim2.new(1, 0, 1, 0)
+    Overlay.Position = UDim2.new(0, 0, 0, 0)
+    Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Overlay.BackgroundTransparency = 1
+    Overlay.BorderSizePixel = 0
+    Overlay.Parent = ScreenGui
+
+    local PromptFrame = Instance.new("Frame")
+    PromptFrame.Name = "PromptFrame"
+    PromptFrame.Size = UDim2.new(0, 400, 0, 250)
+    PromptFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    PromptFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    PromptFrame.BackgroundColor3 = COLORS.Background
+    PromptFrame.BackgroundTransparency = 1
+    PromptFrame.BorderSizePixel = 0
+    PromptFrame.Parent = Overlay
+
+    AddCorner(PromptFrame, 12)
+    AddStroke(PromptFrame, COLORS.Accent, 1, 0.6)
+
+    local Blur = Instance.new("ImageLabel")
+    Blur.Name = "Blur"
+    Blur.Size = UDim2.new(1, 0, 1, 0)
+    Blur.BackgroundTransparency = 1
+    Blur.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+    Blur.ImageTransparency = 0.95
+    Blur.ScaleType = Enum.ScaleType.Crop
+    Blur.Parent = PromptFrame
+
+    AddCorner(Blur, 12)
+
+    local IconHolder = Instance.new("ImageLabel")
+    IconHolder.Name = "Icon"
+    IconHolder.Size = UDim2.new(0, 80, 0, 80)
+    IconHolder.Position = UDim2.new(0.5, 0, 0, 30)
+    IconHolder.AnchorPoint = Vector2.new(0.5, 0)
+    IconHolder.BackgroundColor3 = COLORS.Sidebar
+    IconHolder.BackgroundTransparency = 0.3
+    IconHolder.BorderSizePixel = 0
+    IconHolder.Image = self.IconAsset
+    IconHolder.Parent = PromptFrame
+
+    AddCorner(IconHolder, 40)
+    AddStroke(IconHolder, COLORS.Accent, 2, 0.5)
+
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "Title"
+    TitleLabel.Size = UDim2.new(0.9, 0, 0, 30)
+    TitleLabel.Position = UDim2.new(0.5, 0, 0, 125)
+    TitleLabel.AnchorPoint = Vector2.new(0.5, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = "Do you want to load Viper Hub for"
+    TitleLabel.TextColor3 = COLORS.SubText
+    TitleLabel.TextSize = 14
+    TitleLabel.Font = Enum.Font.GothamMedium
+    TitleLabel.Parent = PromptFrame
+
+    local GameNameLabel = Instance.new("TextLabel")
+    GameNameLabel.Name = "GameName"
+    GameNameLabel.Size = UDim2.new(0.9, 0, 0, 25)
+    GameNameLabel.Position = UDim2.new(0.5, 0, 0, 150)
+    GameNameLabel.AnchorPoint = Vector2.new(0.5, 0)
+    GameNameLabel.BackgroundTransparency = 1
+    GameNameLabel.Text = self.GameInfo.Name
+    GameNameLabel.TextColor3 = COLORS.Accent
+    GameNameLabel.TextSize = 16
+    GameNameLabel.Font = Enum.Font.GothamBold
+    GameNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    GameNameLabel.Parent = PromptFrame
+
+    local ButtonContainer = Instance.new("Frame")
+    ButtonContainer.Name = "Buttons"
+    ButtonContainer.Size = UDim2.new(0.8, 0, 0, 40)
+    ButtonContainer.Position = UDim2.new(0.5, 0, 1, -50)
+    ButtonContainer.AnchorPoint = Vector2.new(0.5, 0)
+    ButtonContainer.BackgroundTransparency = 1
+    ButtonContainer.Parent = PromptFrame
+
+    local YesButton = Instance.new("TextButton")
+    YesButton.Name = "Yes"
+    YesButton.Size = UDim2.new(0.48, 0, 1, 0)
+    YesButton.Position = UDim2.new(0, 0, 0, 0)
+    YesButton.BackgroundColor3 = COLORS.Accent
+    YesButton.BorderSizePixel = 0
+    YesButton.Text = "Yes"
+    YesButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    YesButton.TextSize = 15
+    YesButton.Font = Enum.Font.GothamBold
+    YesButton.AutoButtonColor = false
+    YesButton.Parent = ButtonContainer
+
+    AddCorner(YesButton, 8)
+
+    local NoButton = Instance.new("TextButton")
+    NoButton.Name = "No"
+    NoButton.Size = UDim2.new(0.48, 0, 1, 0)
+    NoButton.Position = UDim2.new(0.52, 0, 0, 0)
+    NoButton.BackgroundColor3 = COLORS.Button
+    NoButton.BorderSizePixel = 0
+    NoButton.Text = "No"
+    NoButton.TextColor3 = COLORS.Text
+    NoButton.TextSize = 15
+    NoButton.Font = Enum.Font.GothamBold
+    NoButton.AutoButtonColor = false
+    NoButton.Parent = ButtonContainer
+
+    AddCorner(NoButton, 8)
+    AddStroke(NoButton, COLORS.Accent, 1, 0.7)
+
+    YesButton.MouseEnter:Connect(function()
+        CreateTween(YesButton, {BackgroundColor3 = COLORS.AccentHover}, 0.2):Play()
+    end)
+
+    YesButton.MouseLeave:Connect(function()
+        CreateTween(YesButton, {BackgroundColor3 = COLORS.Accent}, 0.2):Play()
+    end)
+
+    NoButton.MouseEnter:Connect(function()
+        CreateTween(NoButton, {BackgroundColor3 = COLORS.ButtonHover}, 0.2):Play()
+    end)
+
+    NoButton.MouseLeave:Connect(function()
+        CreateTween(NoButton, {BackgroundColor3 = COLORS.Button}, 0.2):Play()
+    end)
+
+    CreateTween(Overlay, {BackgroundTransparency = 0.4}, 0.3):Play()
+    CreateTween(PromptFrame, {BackgroundTransparency = 0.15}, 0.4):Play()
+
+    wait(0.1)
+    PromptFrame.Size = UDim2.new(0, 0, 0, 0)
+    PromptFrame.BackgroundTransparency = 0.15
+    CreateTween(PromptFrame, {Size = UDim2.new(0, 400, 0, 250)}, 0.5, Enum.EasingStyle.Back):Play()
+
+    YesButton.MouseButton1Click:Connect(function()
+        self:LoadMainUI(ScreenGui)
+    end)
+
+    NoButton.MouseButton1Click:Connect(function()
+        CreateTween(PromptFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In):Play()
+        CreateTween(Overlay, {BackgroundTransparency = 1}, 0.3):Play()
+        wait(0.3)
+        ScreenGui:Destroy()
+    end)
+end
+
+function Viper:LoadMainUI(promptGui)
+    local PromptFrame = promptGui.Overlay.PromptFrame
+
+    CreateTween(PromptFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In):Play()
+    CreateTween(promptGui.Overlay, {BackgroundTransparency = 1}, 0.3):Play()
+    wait(0.35)
+    promptGui:Destroy()
+
+    local MainGui = Instance.new("ScreenGui")
+    MainGui.Name = "ViperHub"
+    MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    MainGui.Parent = CoreGui
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 700, 0, 450)
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainFrame.BackgroundColor3 = COLORS.Background
+    MainFrame.BackgroundTransparency = 0.1
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = MainGui
+
+    AddCorner(MainFrame, 12)
+    AddStroke(MainFrame, COLORS.Accent, 1, 0.6)
+
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Size = UDim2.new(0, 180, 1, 0)
+    Sidebar.Position = UDim2.new(0, 0, 0, 0)
+    Sidebar.BackgroundColor3 = COLORS.Sidebar
+    Sidebar.BackgroundTransparency = 0.2
+    Sidebar.BorderSizePixel = 0
+    Sidebar.Parent = MainFrame
+
+    local SidebarCorner = AddCorner(Sidebar, 12)
+
+    local Header = Instance.new("Frame")
+    Header.Name = "Header"
+    Header.Size = UDim2.new(1, 0, 0, 80)
+    Header.Position = UDim2.new(0, 0, 0, 0)
+    Header.BackgroundTransparency = 1
+    Header.Parent = Sidebar
+
+    local HeaderIcon = Instance.new("ImageLabel")
+    HeaderIcon.Name = "Icon"
+    HeaderIcon.Size = UDim2.new(0, 50, 0, 50)
+    HeaderIcon.Position = UDim2.new(0.5, 0, 0, 15)
+    HeaderIcon.AnchorPoint = Vector2.new(0.5, 0)
+    HeaderIcon.BackgroundColor3 = COLORS.Background
+    HeaderIcon.BackgroundTransparency = 0.3
+    HeaderIcon.BorderSizePixel = 0
+    HeaderIcon.Image = self.IconAsset
+    HeaderIcon.Parent = Header
+
+    AddCorner(HeaderIcon, 25)
+    AddStroke(HeaderIcon, COLORS.Accent, 2, 0.5)
+
+    local HeaderTitle = Instance.new("TextLabel")
+    HeaderTitle.Name = "Title"
+    HeaderTitle.Size = UDim2.new(0.9, 0, 0, 20)
+    HeaderTitle.Position = UDim2.new(0.5, 0, 1, -25)
+    HeaderTitle.AnchorPoint = Vector2.new(0.5, 0)
+    HeaderTitle.BackgroundTransparency = 1
+    HeaderTitle.Text = self.GameInfo.Name
+    HeaderTitle.TextColor3 = COLORS.Text
+    HeaderTitle.TextSize = 13
+    HeaderTitle.Font = Enum.Font.GothamBold
+    HeaderTitle.TextTruncate = Enum.TextTruncate.AtEnd
+    HeaderTitle.Parent = Header
+
+    local Divider = Instance.new("Frame")
+    Divider.Name = "Divider"
+    Divider.Size = UDim2.new(0.8, 0, 0, 1)
+    Divider.Position = UDim2.new(0.5, 0, 0, 85)
+    Divider.AnchorPoint = Vector2.new(0.5, 0)
+    Divider.BackgroundColor3 = COLORS.Accent
+    Divider.BackgroundTransparency = 0.7
+    Divider.BorderSizePixel = 0
+    Divider.Parent = Sidebar
+
+    local ContentArea = Instance.new("Frame")
+    ContentArea.Name = "Content"
+    ContentArea.Size = UDim2.new(1, -180, 1, 0)
+    ContentArea.Position = UDim2.new(0, 180, 0, 0)
+    ContentArea.BackgroundTransparency = 1
+    ContentArea.Parent = MainFrame
+
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    CreateTween(MainFrame, {Size = UDim2.new(0, 700, 0, 450)}, 0.5, Enum.EasingStyle.Back):Play()
+
+    self.Loaded = true
+    self.MainGui = MainGui
+    self.MainFrame = MainFrame
+    self.Sidebar = Sidebar
+    self.ContentArea = ContentArea
+
+    self:MakeDraggable(MainFrame)
+end
+
+function Viper:MakeDraggable(frame)
     local dragging = false
-    local dragStart, startPos
-    
-    self.titleBar.InputBegan:Connect(function(input)
+    local dragInput, mousePos, framePos
+
+    frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            dragStart = input.Position
-            startPos = self.mainFrame.Position
+            mousePos = input.Position
+            framePos = frame.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -175,165 +350,26 @@ function Viper.new()
             end)
         end
     end)
-    
-    self.titleBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            local delta = input.Position - dragStart
-            self.mainFrame.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
+
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
     end)
-    
-    self.closeButton.MouseEnter:Connect(function()
-        ANIMATIONS.ButtonHover(self.closeButton, true)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - mousePos
+            CreateTween(frame, {
+                Position = UDim2.new(
+                    framePos.X.Scale,
+                    framePos.X.Offset + delta.X,
+                    framePos.Y.Scale,
+                    framePos.Y.Offset + delta.Y
+                )
+            }, 0.1, Enum.EasingStyle.Linear):Play()
+        end
     end)
-    
-    self.closeButton.MouseLeave:Connect(function()
-        ANIMATIONS.ButtonHover(self.closeButton, false)
-    end)
-    
-    self.gui.Parent = game:GetService("CoreGui")
-    ANIMATIONS.FadeIn(self.mainFrame, 0.5)
-    
-    self:CreateConfirmationDialog()
-    
-    return self
 end
-
-function Viper:CreateConfirmationDialog()
-    self.overlay = Instance.new("Frame")
-    self.overlay.Name = "Overlay"
-    self.overlay.Size = UDim2.new(1, 0, 1, 0)
-    self.overlay.BackgroundColor3 = Color3.new(0, 0, 0)
-    self.overlay.BackgroundTransparency = 0.7
-    self.overlay.ZIndex = 5
-    
-    self.dialog = Instance.new("Frame")
-    self.dialog.Name = "ConfirmationDialog"
-    self.dialog.Size = UDim2.new(0, 400, 0, 200)
-    self.dialog.Position = UDim2.new(0.5, -200, 0.5, -100)
-    self.dialog.BackgroundColor3 = DEFAULT_COLORS.Background
-    self.dialog.BackgroundTransparency = 0.2
-    self.dialog.BorderSizePixel = 0
-    self.dialog.ZIndex = 6
-    
-    createCorner(12).Parent = self.dialog
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, -40, 0, 60)
-    title.Position = UDim2.new(0, 20, 0, 20)
-    title.BackgroundTransparency = 1
-    title.Text = "Load Viper Hub?"
-    title.TextColor3 = DEFAULT_COLORS.Text
-    title.TextSize = 20
-    title.Font = Enum.Font.GothamSemibold
-    title.TextWrapped = true
-    title.TextXAlignment = Enum.TextXAlignment.Center
-    title.ZIndex = 7
-    title.Parent = self.dialog
-    
-    local buttonContainer = Instance.new("Frame")
-    buttonContainer.Name = "ButtonContainer"
-    buttonContainer.Size = UDim2.new(1, -40, 0, 40)
-    buttonContainer.Position = UDim2.new(0, 20, 1, -70)
-    buttonContainer.BackgroundTransparency = 1
-    buttonContainer.ZIndex = 7
-    
-    local buttonLayout = Instance.new("UIListLayout")
-    buttonLayout.FillDirection = Enum.FillDirection.Horizontal
-    buttonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    buttonLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    buttonLayout.Padding = UDim.new(0, 20)
-    buttonLayout.Parent = buttonContainer
-    
-    local yesButton = Instance.new("TextButton")
-    yesButton.Name = "YesButton"
-    yesButton.Size = UDim2.new(0.4, 0, 1, 0)
-    yesButton.BackgroundColor3 = DEFAULT_COLORS.Button
-    yesButton.Text = "Yes"
-    yesButton.TextColor3 = DEFAULT_COLORS.Text
-    yesButton.TextSize = 14
-    yesButton.Font = Enum.Font.GothamSemibold
-    yesButton.ZIndex = 8
-    yesButton.LayoutOrder = 1
-    
-    local noButton = yesButton:Clone()
-    noButton.Name = "NoButton"
-    noButton.Text = "No"
-    noButton.LayoutOrder = 2
-    
-    local buttonCorner = createCorner(8)
-    buttonCorner.Parent = yesButton
-    buttonCorner:Clone().Parent = noButton
-    
-    yesButton.MouseEnter:Connect(function() ANIMATIONS.ButtonHover(yesButton, true) end)
-    yesButton.MouseLeave:Connect(function() ANIMATIONS.ButtonHover(yesButton, false) end)
-    noButton.MouseEnter:Connect(function() ANIMATIONS.ButtonHover(noButton, true) end)
-    noButton.MouseLeave:Connect(function() ANIMATIONS.ButtonHover(noButton, false) end)
-    
-    yesButton.MouseButton1Click:Connect(function()
-        self:CloseDialog()
-    end)
-    
-    noButton.MouseButton1Click:Connect(function()
-        self:Close()
-    end)
-    
-    yesButton.Parent = buttonContainer
-    noButton.Parent = buttonContainer
-    buttonContainer.Parent = self.dialog
-    self.dialog.Parent = self.overlay
-    self.overlay.Parent = self.gui
-    
-    self.dialog.Size = UDim2.new(0, 0, 0, 0)
-    self.dialog.Position = UDim2.new(0.5, 0, 0.5, 0)
-    
-    TweenService:Create(
-        self.dialog,
-        TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-        {Size = UDim2.new(0, 400, 0, 200), Position = UDim2.new(0.5, -200, 0.5, -100)}
-    ):Play()
-end
-
-function Viper:CloseDialog()
-    if self.dialog and self.overlay then
-        TweenService:Create(
-            self.dialog,
-            TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In),
-            {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}
-        ).Completed:Connect(function()
-            self.overlay:Destroy()
-            self.overlay = nil
-            self.dialog = nil
-        end):Play()
-    end
-end
-
-function Viper:Close()
-    TweenService:Create(
-        self.mainFrame, 
-        TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), 
-        {BackgroundTransparency = 1}
-    ).Completed:Connect(function()
-        self.gui:Destroy()
-    end):Play()
-end
-
--- Example usage
---[[
-local Viper = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/viper-ui/main/library.luau"))()
-
--- Create a new Viper UI instance
-local ui = Viper.new()
-
--- You can customize the UI after creation
-ui.title.Text = "My Awesome Game"
-ui.icon.Image = "rbxassetid://1234567890" -- Replace with your icon asset id
-]]
 
 return Viper
