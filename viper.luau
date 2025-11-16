@@ -25,7 +25,7 @@ local ANIMATIONS = {
                 if child:IsA("ImageLabel") or child:IsA("ImageButton") then
                     child.ImageTransparency = 1
                 end
-            }
+            end
         end
         
         local tweenInfo = TweenInfo.new(duration or 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -324,5 +324,16 @@ function Viper:Close()
     end):Play()
 end
 
+-- Example usage
+--[[
+local Viper = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/viper-ui/main/library.luau"))()
+
+-- Create a new Viper UI instance
+local ui = Viper.new()
+
+-- You can customize the UI after creation
+ui.title.Text = "My Awesome Game"
+ui.icon.Image = "rbxassetid://1234567890" -- Replace with your icon asset id
+]]
 
 return Viper
